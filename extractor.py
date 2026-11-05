@@ -12,6 +12,7 @@ from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
 load_dotenv()
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,6 @@ def get_events_from_db():
 def extract_first_link(text):
     urls = re.findall(r'(https?://[^\s]+)', text)
     for url in urls:
-        # Clean up common trailing punctuation
         url = url.rstrip(')>].')
         if "uni-koblenz.de" in url or "moodle" in url or "klips" in url or "velebit" in url:
             return url
@@ -54,7 +54,6 @@ def sync_emails_to_db():
         mail = imaplib.IMAP4_SSL(os.getenv("IMAP_SERVER"), 993)
         mail.login(os.getenv("IMAP_USERNAME"), os.getenv("IMAP_PASSWORD"))
         
-        # 1. Query 'Trash', 'Done', or equivalent archive folders to ignore them
         ignored_uids = set()
         mail.list()
         for folder_candidate in ['"[Gmail]/Trash"', '"Trash"', '"Done"', '"Archive"']:
@@ -68,7 +67,6 @@ def sync_emails_to_db():
             except Exception:
                 continue
 
-        # Select main Inbox
         mail.select("inbox")
         status, messages = mail.uid("search", None, "ALL")
         email_uids = messages[0].split()
@@ -88,7 +86,6 @@ def sync_emails_to_db():
         for uid_bytes in email_uids:
             uid_str = uid_bytes.decode('utf-8')
             
-            # Skip if already in DB or inside Trash/Done folder
             if uid_str in existing_uids or uid_str in ignored_uids:
                 skipped_count += 1
                 continue
