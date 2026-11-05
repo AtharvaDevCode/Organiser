@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>University Mail Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Newsreader', serif;
+            background-color: #1d2021;
+            color: #ebdbb2;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .sans-ui {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .card {
+            background-color: #282828;
+            border: 1px solid #3c3836;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.2s ease;
+        }
+        .card:hover {
+            border-color: #504945;
+            transform: translateY(-2px);
+        }
+        .pinned-card {
+            border-color: #d79921 !important;
+            background-color: #322d26 !important;
+        }
+        select, input[type="text"], input[type="search"] {
+            background-color: #1d2021 !important;
+            color: #ebdbb2 !important;
+            border-color: #3c3836 !important;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2021;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3c3836;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+    <div class="max-w-[98%] mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[#3c3836] pb-6 mb-6 gap-4">
+            <div>
+                <h1 class="text-2xl font-medium tracking-tight text-[#fbf1c7] flex items-center gap-3">
+                    <span class="w-2.5 h-2.5 bg-[#d79921] rounded-full animate-pulse"></span>
+                    Universität Koblenz // Posteingang
+                </h1>
+                <p id="stats-counter" class="text-xs text-[#a89984] mt-1 mono font-medium">Loading records...</p>
+            </div>
+            <div class="flex items-center gap-3 sans-ui text-xs">
+                <button onclick="triggerSync()" class="bg-[#3c3836] hover:bg-[#504945] text-[#ebdbb2] px-4 py-2 rounded-xl font-semibold tracking-wide transition border border-[#504945] shadow-md">
+                    Sync New Mails
+                </button>
+                <button onclick="clearAllEvents()" class="bg-[#cc241d]/20 hover:bg-[#cc241d]/40 text-[#fb4934] border border-[#cc241d]/30 px-3.5 py-2 rounded-xl font-semibold tracking-wide transition">
+                    Purge Database
+                </button>
+            </div>
+        </div>
+
+        <!-- Bulk Actions Bar -->
+        <div id="batch-toolbar" class="hidden mb-6 bg-[#282828] border border-[#d79921]/40 px-5 py-3 rounded-xl flex justify-between items-center text-xs sans-ui shadow-xl">
+            <span id="selected-count" class="font-semibold text-[#fabd2f]">0 selected</span>
+            <button onclick="batchDelete()" class="bg-[#cc241d] hover:bg-[#9d1e18] text-white px-3.5 py-1.5 rounded-lg font-semibold transition">
+                Delete Selected
+            </button>
+        </div>
+
+        <!-- Navigation Tabs, Smart Search Bar, Tag Filter & Sorter -->
+        <div class="flex flex-col lg:flex-row justify-between items-stretch lg:items-center mb-4 gap-4 bg-[#282828]/90 p-3 rounded-2xl border border-[#3c3836] sans-ui text-xs">
+            <div class="flex flex-wrap gap-1.5 bg-[#1d2021] p-1 rounded-xl border border-[#3c3836]">
+                <button onclick="setTab('active')" id="tab-active" class="px-4 py-1.5 rounded-lg font-semibold transition bg-[#d79921] text-[#1d2021] shadow">Active</button>
+                <button onclick="setTab('all')" id="tab-all" class="px-4 py-1.5 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]">All</button>
+                <button onclick="setTab('upcoming')" id="tab-upcoming" class="px-4 py-1.5 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]">Upcoming</button>
+                <button onclick="setTab('past')" id="tab-past" class="px-4 py-1.5 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]">Passed</button>
+                <button onclick="setTab('done')" id="tab-done" class="px-4 py-1.5 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]">Done</button>
+            </div>
+
+            <!-- Smart Italic Search Bar -->
+            <div class="flex-grow max-w-xs relative">
+                <input type="search" id="search-input" oninput="renderEvents()" placeholder="Ask about events..." class="w-full bg-[#1d2021] text-[#ebdbb2] border border-[#3c3836] px-4 py-2 rounded-xl text-xs italic focus:outline-none focus:border-[#d79921] transition">
+            </div>
+
+            <!-- Tag Filter Dropdown -->
+            <div class="flex items-center gap-2">
+                <span class="text-[#a89984] font-semibold uppercase tracking-wider">Tag:</span>
+                <select id="tag-filter" onchange="renderEvents()" class="px-3 py-2 rounded-xl font-medium focus:outline-none border border-[#3c3836]">
+                    <option value="" selected>All Tags</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSelectMode()" id="select-mode-btn" class="bg-[#3c3836] hover:bg-[#504945] text-[#ebdbb2] px-3.5 py-2 rounded-xl font-semibold transition border border-[#504945]">
+                    Select Multiple: OFF
+                </button>
+                <span class="text-[#a89984] font-semibold uppercase tracking-wider">Sort:</span>
+                <select id="sort-selector" onchange="renderEvents()" class="px-3 py-2 rounded-xl font-medium focus:outline-none border border-[#3c3836]">
+                    <option value="relevance" selected>AI Relevance</option>
+                    <option value="date-soonest">Date (Soonest)</option>
+                    <option value="date-latest">Date (Latest)</option>
+                    <option value="received-newest">Received (Newest)</option>
+                    <option value="title">Title (A-Z)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Conversational Smart Answer Bar -->
+        <div id="ai-answer-bar" class="hidden mb-6 bg-[#23272e] border border-[#d79921]/30 px-5 py-3 rounded-xl text-xs sans-ui text-[#fabd2f] italic"></div>
+
+        <div id="loading" class="text-center text-[#a89984] italic py-16 text-sm mono">Synchronizing database...</div>
+        
+        <!-- Wide Rectangular Grid -->
+        <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
+    </div>
+
+    <script>
+        let allEvents = [];
+        let currentTab = 'active';
+        let selectMode = false;
+        let selectedIds = new Set();
+
+        function setTab(tab) {
+            currentTab = tab;
+            ['active', 'all', 'upcoming', 'past', 'done'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    btn.className = "px-4 py-1.5 rounded-lg font-semibold transition bg-[#d79921] text-[#1d2021] shadow";
+                } else {
+                    btn.className = "px-4 py-1.5 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]";
+                }
+            });
+            renderEvents();
+        }
+
+        function toggleSelectMode() {
+            selectMode = !selectMode;
+            const btn = document.getElementById('select-mode-btn');
+            if (selectMode) {
+                btn.className = "bg-[#d79921] text-[#1d2021] px-3.5 py-2 rounded-lg font-bold transition border border-[#d79921]";
+                btn.innerText = "Select Multiple: ON";
+            } else {
+                btn.className = "bg-[#3c3836] hover:bg-[#504945] text-[#ebdbb2] px-3.5 py-2 rounded-lg font-semibold transition border border-[#504945]";
+                btn.innerText = "Select Multiple: OFF";
+                selectedIds.clear();
+                document.getElementById('batch-toolbar').classList.add('hidden');
+            }
+            renderEvents();
+        }
+
+        function parseDate(dateStr) {
+            if (!dateStr) return null;
+            let rawDate = dateStr.split('-')[0].trim().split(' ')[0];
+            let parts = rawDate.split('.');
+            if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
+            return null;
+        }
+
+        function getDaysToGo(dateStr) {
+            const eventDate = parseDate(dateStr);
+            if (!eventDate) return { text: "", isPast: false };
+            let today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let diffDays = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) return { text: `<span class="bg-[#fabd2f]/15 text-[#fabd2f] border border-[#fabd2f]/30 px-2 py-0.5 rounded text-[11px] mono font-semibold">in ${diffDays} days</span>`, isPast: false };
+            if (diffDays === 0) return { text: `<span class="bg-[#fe8019]/20 text-[#fe8019] border border-[#fe8019]/40 px-2 py-0.5 rounded text-[11px] mono font-bold">Today</span>`, isPast: false };
+            return { text: `<span class="bg-[#3c3836] text-[#a89984] px-2 py-0.5 rounded text-[11px] mono">Passed</span>`, isPast: true };
+        }
+
+        function isLikelyGerman(text) {
+            if (!text) return false;
+            const germanWords = ['universität', 'vorlesung', 'studierenden', 'veranstaltung', 'frist', 'prüfung', 'termin', 'hinweis', 'bitte', 'einschreibung'];
+            const lower = text.toLowerCase();
+            return germanWords.some(word => lower.includes(word));
+        }
+
+        async function triggerSync() {
+            const btn = event.target;
+            btn.innerText = "Syncing...";
+            btn.disabled = true;
+            try {
+                await fetch('/sync', { method: 'POST' });
+                alert("Background synchronization started. Already processed mails are skipped automatically.");
+            } catch (error) { alert("Error during sync."); }
+            finally { btn.innerText = "Sync New Mails"; btn.disabled = false; }
+        }
+
+        async function toggleDone(id, isDone) {
+            await fetch(`/events/${id}/done`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_done: isDone })
+            });
+            fetchEvents();
+        }
+
+        async function togglePin(id, isPinned) {
+            await fetch(`/events/${id}/pin`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_pinned: isPinned })
+            });
+            fetchEvents();
+        }
+
+        async function addTag(id, currentTagsStr) {
+            let tagInput = prompt("Enter tag name (prefix with 'done:' or 'active:' for status control if desired):");
+            if (!tagInput) return;
+            let tags = [];
+            try { tags = JSON.parse(currentTagsStr.replace(/'/g, '"')); } catch(e) { tags = []; }
+            if (!tags.includes(tagInput)) tags.push(tagInput);
+
+            let extraUpdates = {};
+            if (tagInput.toLowerCase().startsWith("done:")) extraUpdates.is_done = true;
+            if (tagInput.toLowerCase().startsWith("active:")) extraUpdates.is_done = false;
+
+            await fetch(`/events/${id}/tags`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: tags, ...extraUpdates })
+            });
+            fetchEvents();
+        }
+
+        async function deleteEvent(id) {
+            if (!confirm("Delete entry?")) return;
+            await fetch(`/events/${id}`, { method: 'DELETE' });
+            fetchEvents();
+        }
+
+        async function clearAllEvents() {
+            if (!confirm("Wipe all records?")) return;
+            await fetch('/events', { method: 'DELETE' });
+            fetchEvents();
+        }
+
+        function toggleSelect(id, checkbox) {
+            if (checkbox.checked) selectedIds.add(id);
+            else selectedIds.delete(id);
+            
+            const toolbar = document.getElementById('batch-toolbar');
+            if (selectedIds.size > 0) {
+                toolbar.classList.remove('hidden');
+                document.getElementById('selected-count').innerText = `${selectedIds.size} selected`;
+            } else {
+                toolbar.classList.add('hidden');
+            }
+        }
+
+        async function batchDelete() {
+            if (!confirm(`Delete ${selectedIds.size} selected records?`)) return;
+            await fetch('/events/batch-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: Array.from(selectedIds) })
+            });
+            selectedIds.clear();
+            document.getElementById('batch-toolbar').classList.add('hidden');
+            fetchEvents();
+        }
+
+        async function fetchEvents() {
+            try {
+                const response = await fetch('/events');
+                const data = await response.json();
+                document.getElementById('loading').style.display = 'none';
+                allEvents = data.events || [];
+                populateTagDropdown();
+                renderEvents();
+            } catch (error) { document.getElementById('loading').innerText = "Failed to load database."; }
+        }
+
+        function populateTagDropdown() {
+            const dropdown = document.getElementById('tag-filter');
+            const currentSelected = dropdown.value;
+            let allTagsSet = new Set();
+
+            allEvents.forEach(ev => {
+                try {
+                    let tags = JSON.parse((ev.tags || '[]').replace(/'/g, '"'));
+                    tags.forEach(t => allTagsSet.add(t));
+                } catch(e){}
+            });
+
+            dropdown.innerHTML = `<option value="">All Tags</option>`;
+            Array.from(allTagsSet).sort().forEach(tag => {
+                let opt = document.createElement('option');
+                opt.value = tag;
+                opt.innerText = `#${tag}`;
+                if (tag === currentSelected) opt.selected = true;
+                dropdown.appendChild(opt);
+            });
+        }
+
+        function computeRelevanceScore(event, queryTokens) {
+            if (queryTokens.length === 0) return 0;
+            let score = 0;
+            const title = (event.event_title || "").toLowerCase();
+            const summary = (event.summary || "").toLowerCase();
+            const organizer = (event.organizer || "").toLowerCase();
+            const category = (event.category || "").toLowerCase();
+            
+            let parsedTags = [];
+            try { parsedTags = JSON.parse((event.tags || '[]').replace(/'/g, '"')); } catch(e) { parsedTags = []; }
+            const tagsStr = parsedTags.join(" ").toLowerCase();
+
+            queryTokens.forEach(token => {
+                if (title.includes(token)) score += 15;
+                if (tagsStr.includes(token)) score += 12;
+                if (organizer.includes(token)) score += 8;
+                if (category.includes(token)) score += 6;
+                if (summary.includes(token)) score += 3;
+            });
+            return score;
+        }
+
+        function renderEvents() {
+            const grid = document.getElementById('events-grid');
+            grid.innerHTML = "";
+            const sortMode = document.getElementById('sort-selector').value;
+            const rawSearchQuery = document.getElementById('search-input').value.trim();
+            const searchQuery = rawSearchQuery.toLowerCase();
+            const queryTokens = searchQuery ? searchQuery.split(/\s+/) : [];
+            const selectedTag = document.getElementById('tag-filter').value;
+
+            let filtered = allEvents.filter(ev => {
+                const info = getDaysToGo(ev.date || ev.deadline);
+                
+                if (selectedTag) {
+                    try {
+                        let evTags = JSON.parse((ev.tags || '[]').replace(/'/g, '"'));
+                        if (!evTags.includes(selectedTag)) return false;
+                    } catch(e) { return false; }
+                }
+
+                let hasDoneTag = false;
+                let hasActiveTag = false;
+                try {
+                    let evTags = JSON.parse((ev.tags || '[]').replace(/'/g, '"'));
+                    hasDoneTag = evTags.some(t => t.toLowerCase().startsWith('done'));
+                    hasActiveTag = evTags.some(t => t.toLowerCase().startsWith('active'));
+                } catch(e){}
+
+                let effectiveIsDone = hasDoneTag ? true : (hasActiveTag ? false : ev.is_done);
+
+                if (currentTab === 'done') return effectiveIsDone;
+                if (effectiveIsDone) return false; 
+                
+                if (currentTab === 'active') return !info.isPast; 
+                if (currentTab === 'upcoming') return !info.isPast;
+                if (currentTab === 'past') return info.isPast;
+                return true; 
+            });
+
+            let isTodayQuery = searchQuery.includes("today") || searchQuery.includes("heute");
+            let isTomorrowQuery = searchQuery.includes("tomorrow") || searchQuery.includes("morgen");
+
+            if (isTodayQuery || isTomorrowQuery) {
+                let targetDate = new Date();
+                if (isTomorrowQuery) targetDate.setDate(targetDate.getDate() + 1);
+                targetDate.setHours(0,0,0,0);
+
+                filtered = filtered.filter(ev => {
+                    const evDate = parseDate(ev.date || ev.deadline);
+                    if (!evDate) return false;
+                    evDate.setHours(0,0,0,0);
+                    return evDate.getTime() === targetDate.getTime();
+                });
+            } else if (queryTokens.length > 0) {
+                filtered = filtered.map(ev => {
+                    return { event: ev, score: computeRelevanceScore(ev, queryTokens) };
+                }).filter(item => item.score > 0)
+                  .sort((a, b) => b.score - a.score)
+                  .map(item => item.event);
+            }
+
+            const aiBar = document.getElementById('ai-answer-bar');
+            if (rawSearchQuery.length > 0) {
+                aiBar.classList.remove('hidden');
+                if (filtered.length > 0) {
+                    aiBar.innerText = `Found ${filtered.length} matching event${filtered.length > 1 ? 's' : ''} for "${rawSearchQuery}":`;
+                } else {
+                    aiBar.innerText = `No events found matching "${rawSearchQuery}".`;
+                }
+            } else {
+                aiBar.classList.add('hidden');
+            }
+
+            const uids = new Set(allEvents.map(e => e.email_uid).filter(Boolean));
+            const mailCount = uids.size > 0 ? uids.size : allEvents.length;
+            document.getElementById('stats-counter').innerText = `${filtered.length} tiles in "${currentTab.toUpperCase()}" // ${mailCount} Mails Parsed`;
+
+            filtered.sort((a, b) => {
+                if (a.is_pinned && !b.is_pinned) return -1;
+                if (!a.is_pinned && b.is_pinned) return 1;
+
+                if (queryTokens.length === 0 || sortMode !== 'relevance' || isTodayQuery || isTomorrowQuery) {
+                    if (sortMode === 'title') return a.event_title.localeCompare(b.event_title);
+                    if (sortMode === 'received-newest') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                    const dateA = parseDate(a.date || a.deadline) || new Date(0);
+                    const dateB = parseDate(b.date || b.deadline) || new Date(0);
+                    if (sortMode === 'date-soonest') return dateA - dateB;
+                    if (sortMode === 'date-latest') return dateB - dateA;
+                }
+                return 0;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<p class="text-[#a89984] italic col-span-full py-16 text-center text-xs mono">No matching records found.</p>`;
+                return;
+            }
+
+            filtered.forEach(event => {
+                let hasDoneTag = false;
+                let hasActiveTag = false;
+                try {
+                    let evTags = JSON.parse((event.tags || '[]').replace(/'/g, '"'));
+                    hasDoneTag = evTags.some(t => t.toLowerCase().startsWith('done'));
+                    hasActiveTag = evTags.some(t => t.toLowerCase().startsWith('active'));
+                } catch(e){}
+                let effectiveIsDone = hasDoneTag ? true : (hasActiveTag ? false : event.is_done);
+
+                const card = document.createElement('div');
+                card.className = `card rounded-2xl p-5 flex flex-col justify-between text-sm ${effectiveIsDone ? 'opacity-40' : ''} ${event.is_pinned ? 'pinned-card' : ''}`;
+
+                let countdown = getDaysToGo(event.date || event.deadline);
+                let actionBadge = (event.action_required && !countdown.isPast) ? `<span class="bg-[#cc241d]/20 text-[#fb4934] border border-[#cc241d]/40 px-2.5 py-0.5 rounded text-[10px] mono font-semibold tracking-wide">Action Required</span>` : "";
+                
+                let eventDateDisplay = "";
+                if (event.date) {
+                    eventDateDisplay = `<div class="bg-[#1d2021] border border-[#3c3836] rounded-xl p-2.5 mb-3 flex items-center justify-between"><span class="text-[10px] text-[#a89984] uppercase tracking-wider font-bold sans-ui">Event Date</span><span class="text-[#ebdbb2] font-semibold mono text-xs">${event.date} ${countdown.text}</span></div>`;
+                } else if (event.deadline) {
+                    eventDateDisplay = `<div class="bg-[#cc241d]/15 border border-[#cc241d]/30 rounded-xl p-2.5 mb-3 flex items-center justify-between"><span class="text-[10px] text-[#fb4934] uppercase tracking-wider font-bold sans-ui">Deadline</span><span class="text-[#fb4934] font-semibold mono text-xs">${event.deadline} ${countdown.text}</span></div>`;
+                } else {
+                    eventDateDisplay = `<div class="bg-[#1d2021]/50 border border-[#3c3836]/50 rounded-xl p-2.5 mb-3 flex items-center justify-between"><span class="text-[10px] text-[#7c6f64] uppercase tracking-wider font-bold sans-ui">Date</span><span class="text-[#7c6f64] italic text-[11px]">Not specified</span></div>`;
+                }
+
+                // Clean text-based link without awkward icons
+                let linkButton = event.email_link ? `<a href="${event.email_link}" target="_blank" class="inline-block text-xs font-semibold text-[#83a598] hover:text-[#bdae93] mt-2 sans-ui underline underline-offset-4">Open Broadcast Link</a>` : "";
+
+                let germanNotice = "";
+                if (isLikelyGerman(event.summary) || isLikelyGerman(event.event_title)) {
+                    germanNotice = `<div class="bg-[#d79921]/10 border border-[#d79921]/20 p-2.5 rounded-xl mb-4 text-[11px] text-[#fabd2f] italic">
+                        <em>Translated summary from original German university broadcast.</em>
+                    </div>`;
+                }
+
+                let parsedTags = [];
+                try { parsedTags = JSON.parse((event.tags || '[]').replace(/'/g, '"')); } catch(e) { parsedTags = []; }
+                let tagsHtml = parsedTags.map(t => `<span class="bg-[#1d2021] text-[#d5c4a1] px-2.5 py-0.5 rounded text-[10px] border border-[#3c3836] mono">#${t}</span>`).join(' ');
+
+                let checkboxHtml = selectMode ? `<input type="checkbox" onclick="toggleSelect(${event.id}, this)" ${selectedIds.has(event.id) ? 'checked' : ''} class="w-5 h-5 rounded bg-[#1d2021] border-[#504945] text-[#d79921] cursor-pointer">` : '';
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-3 sans-ui">
+                            <div class="flex items-center gap-2">
+                                ${checkboxHtml}
+                                <span class="uppercase tracking-wider text-[10px] font-semibold text-[#bdae93] bg-[#d79921]/15 border border-[#d79921]/30 px-2.5 py-0.5 rounded-md">${event.category}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${actionBadge}
+                                <button onclick="togglePin(${event.id}, ${!event.is_pinned})" class="text-[10px] text-[#a89984] hover:text-[#fabd2f] font-bold px-2 py-0.5 rounded border border-[#3c3836] bg-[#1d2021] transition" title="Pin / Unpin">${event.is_pinned ? 'UNPIN' : 'PIN'}</button>
+                                <button onclick="deleteEvent(${event.id})" class="text-[#a89984] hover:text-[#fb4934] font-bold text-sm px-1" title="Delete">✕</button>
+                            </div>
+                        </div>
+
+                        <h2 class="text-base font-medium text-[#fbf1c7] mb-1.5 leading-snug italic">${event.event_title}</h2>
+                        <p class="text-[11px] text-[#a89984] uppercase tracking-wide mb-3 truncate font-medium sans-ui">Sender: ${event.organizer || 'Unknown'}</p>
+                        
+                        ${eventDateDisplay}
+
+                        <p class="text-[#d5c4a1] text-sm leading-relaxed mb-4 not-italic">${event.summary}</p>
+
+                        ${germanNotice}
+
+                        ${linkButton}
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-[#3c3836] flex flex-col gap-2.5 sans-ui">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            ${tagsHtml}
+                            <button onclick="addTag(${event.id}, '${event.tags || '[]'}')" class="text-[10px] text-[#a89984] hover:text-[#ebdbb2] bg-[#1d2021] px-2 py-0.5 rounded border border-[#3c3836] font-medium">+ Tag</button>
+                        </div>
+                        <div class="flex justify-between items-center pt-1">
+                            <span class="mono text-[10px] text-[#a89984]">Received: ${event.email_date ? event.email_date.substring(0,16) : 'Unknown'}</span>
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-sm text-[#ebdbb2] hover:text-white">
+                                <input type="checkbox" ${effectiveIsDone ? 'checked' : ''} onchange="toggleDone(${event.id}, this.checked)" class="w-5 h-5 rounded bg-[#1d2021] border-[#504945] text-[#b8bb26] cursor-pointer">
+                                Done
+                            </label>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        fetchEvents();
+    </script>
+</body>
+</html>
