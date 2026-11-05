@@ -1,30 +1,52 @@
-from fastapi import FastAPI, BackgroundTasks, Request
-from fastapi.responses import FileResponse
-from extractor import get_events_from_db, sync_emails_to_db
-import psycopg2
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
+from mangum import Mangum
+from extractor import sync_emails_to_db
 
-app = FastAPI(title="Uni Koblenz Dashboard API")
+load_dotenv()
+
+app = FastAPI()
 
 def get_db_connection():
     return psycopg2.connect(os.getenv("NEON_DB_URL"))
 
-@app.get("/", response_class=FileResponse)
-def serve_dashboard():
-    return FileResponse("index.html")
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "index.html not found in root directory."
 
 @app.get("/events")
-def get_events():
-    data = get_events_from_db()
-    return {
-        "events": data["events"],
-        "total_events": data["total_events"]
-    }
+async def get_events():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM university_events ORDER BY id DESC")
+        events = cursor.fetchall()
+        
+        cursor.execute("SELECT COUNT(*) as total FROM university_events")
+        total_events = cursor.fetchone()["total"]
+        
+        cursor.close()
+        conn.close()
+        return {"events": events, "total_events": total_events}
+    except Exception as e:
+        return {"events": [], "total_events": 0, "error": str(e)}
 
 @app.post("/sync")
-def trigger_sync(background_tasks: BackgroundTasks):
-    background_tasks.add_task(sync_emails_to_db)
-    return {"message": "Sync started in the background."}
+async def trigger_sync():
+    try:
+        sync_emails_to_db()
+        return {"message": "Sync completed successfully."}
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.patch("/events/{event_id}/done")
 async def toggle_done(event_id: int, request: Request):
@@ -37,7 +59,22 @@ async def toggle_done(event_id: int, request: Request):
         conn.commit()
         cursor.close()
         conn.close()
-        return {"message": "Status updated"}
+        return {"message": "Done status updated"}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.patch("/events/{event_id}/pin")
+async def toggle_pin(event_id: int, request: Request):
+    body = await request.json()
+    is_pinned = body.get("is_pinned", False)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE university_events SET is_pinned = %s WHERE id = %s", (is_pinned, event_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "Pin status updated"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -45,14 +82,31 @@ async def toggle_done(event_id: int, request: Request):
 async def update_tags(event_id: int, request: Request):
     body = await request.json()
     tags = body.get("tags", [])
+    is_done = body.get("is_done", None)
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE university_events SET tags = %s WHERE id = %s", (str(tags), event_id))
+        if is_done is not None:
+            cursor.execute("UPDATE university_events SET tags = %s, is_done = %s WHERE id = %s", (str(tags), is_done, event_id))
+        else:
+            cursor.execute("UPDATE university_events SET tags = %s WHERE id = %s", (str(tags), event_id))
         conn.commit()
         cursor.close()
         conn.close()
         return {"message": "Tags updated"}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.delete("/events/{event_id}")
+async def delete_event(event_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM university_events WHERE id = %s", (event_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "Event deleted"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -69,46 +123,22 @@ async def batch_delete(request: Request):
         conn.commit()
         cursor.close()
         conn.close()
-        return {"message": "Batch deleted successfully"}
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.delete("/events/{event_id}")
-def delete_event(event_id: int):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM university_events WHERE id = %s", (event_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return {"message": "Event deleted successfully"}
+        return {"message": f"Deleted {len(ids)} events"}
     except Exception as e:
         return {"error": str(e)}
 
 @app.delete("/events")
-def clear_all_events():
+async def clear_all_events():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("TRUNCATE TABLE university_events RESTART IDENTITY")
+        cursor.execute("DELETE FROM university_events")
         conn.commit()
         cursor.close()
         conn.close()
-        return {"message": "All events cleared"}
+        return {"message": "All events purged"}
     except Exception as e:
         return {"error": str(e)}
-@app.patch("/events/{event_id}/pin")
-async def toggle_pin(event_id: int, request: Request):
-    body = await request.json()
-    is_pinned = body.get("is_pinned", False)
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE university_events SET is_pinned = %s WHERE id = %s", (is_pinned, event_id))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return {"message": "Pin status updated"}
-    except Exception as e:
-        return {"error": str(e)}
+
+# Vercel Serverless Handler Adapter
+handler = Mangum(app)
