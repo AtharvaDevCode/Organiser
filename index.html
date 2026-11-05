@@ -16,10 +16,10 @@
         .mono { font-family: 'JetBrains Mono', monospace; }
         .sans-ui { font-family: 'JetBrains Mono', monospace; }
         
-        .mobile-card {
+        .card {
             background-color: #282828;
             border: 1px solid #3c3836;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
         }
         .pinned-card {
             border-color: #d79921 !important;
@@ -35,56 +35,133 @@
             color: #ebdbb2 !important;
             border-color: #3c3836 !important;
         }
+
+        /* Responsive Design Switcher: Show Mobile View on small screens, PC View on desktop */
+        @media (max-width: 768px) {
+            .pc-view { display: none !important; }
+            .mobile-view { display: flex !important; }
+        }
+        @media (min-width: 769px) {
+            .pc-view { display: block !important; }
+            .mobile-view { display: none !important; }
+        }
     </style>
 </head>
-<body class="pb-32 pt-4 px-3 md:p-8 min-h-screen flex flex-col justify-between">
+<body class="min-h-screen pb-32">
 
-    <div class="max-w-xl mx-auto w-full">
-        <!-- Top App Bar -->
-        <header class="flex justify-between items-center border-b border-[#3c3836] pb-4 mb-4">
+    <!-- ========================================== -->
+    <!-- ANDROID / MOBILE VIEW (Designed for Phones) -->
+    <!-- ========================================== -->
+    <div class="mobile-view hidden flex-col p-3 w-full max-w-lg mx-auto gap-4">
+        <!-- Mobile Header -->
+        <header class="flex justify-between items-center border-b border-[#3c3836] pb-3">
             <div>
-                <h1 class="text-base md:text-xl font-medium tracking-tight text-[#fbf1c7] flex items-center gap-2">
+                <h1 class="text-base font-medium tracking-tight text-[#fbf1c7] flex items-center gap-2">
                     <span class="w-2.5 h-2.5 bg-[#d79921] rounded-full animate-pulse"></span>
                     Uni Koblenz // Inbox
                 </h1>
-                <p id="stats-counter" class="text-[11px] text-[#a89984] mt-0.5 mono">Loading records...</p>
+                <p id="stats-counter-mobile" class="text-[11px] text-[#a89984] mt-0.5 mono">Loading...</p>
             </div>
             <div class="flex items-center gap-2 sans-ui">
-                <button onclick="triggerSync()" class="bg-[#3c3836] active:bg-[#504945] text-[#ebdbb2] px-3 py-2 rounded-xl text-xs font-semibold border border-[#504945] transition">
-                    Sync
-                </button>
-                <button onclick="toggleSelectMode()" id="select-mode-btn" class="bg-[#3c3836] active:bg-[#504945] text-[#ebdbb2] px-3 py-2 rounded-xl text-xs font-semibold border border-[#504945] transition">
-                    Select
-                </button>
+                <button onclick="triggerSync()" class="bg-[#3c3836] active:bg-[#504945] text-[#ebdbb2] px-3 py-2 rounded-xl text-xs font-semibold border border-[#504945]">Sync</button>
+                <button onclick="toggleSelectMode()" id="select-mode-btn-mobile" class="bg-[#3c3836] active:bg-[#504945] text-[#ebdbb2] px-3 py-2 rounded-xl text-xs font-semibold border border-[#504945]">Select</button>
             </div>
         </header>
 
-        <!-- Search & Filters Container (Never clips) -->
-        <div class="mb-4 flex flex-col gap-3 sans-ui">
-            <div class="relative">
-                <input type="search" id="search-input" oninput="renderEvents()" placeholder="Ask naturally (e.g. exams tomorrow)..." class="w-full bg-[#1d2021] text-[#ebdbb2] border border-[#3c3836] px-4 py-3 rounded-2xl text-xs italic focus:outline-none focus:border-[#d79921] transition shadow-inner">
-            </div>
+        <!-- Mobile Controls: Search, Tabs, Tag Filter, Sorter -->
+        <div class="flex flex-col gap-2.5 sans-ui">
+            <input type="search" id="search-input-mobile" oninput="syncSearchAndRender('mobile')" placeholder="Ask naturally (e.g. exams tomorrow)..." class="w-full bg-[#1d2021] text-[#ebdbb2] border border-[#3c3836] px-4 py-3 rounded-2xl text-xs italic focus:outline-none focus:border-[#d79921]">
             
-            <div class="flex flex-wrap items-center gap-2">
-                <div class="flex flex-wrap gap-1 bg-[#282828] p-1 rounded-xl border border-[#3c3836]">
-                    <button onclick="setTab('active')" id="tab-active" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#d79921] text-[#1d2021] transition shadow">Active</button>
-                    <button onclick="setTab('upcoming')" id="tab-upcoming" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#a89984] transition">Upcoming</button>
-                    <button onclick="setTab('done')" id="tab-done" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#a89984] transition">Done</button>
-                    <button onclick="setTab('all')" id="tab-all" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#a89984] transition">All</button>
-                </div>
-                <select id="tag-filter" onchange="renderEvents()" class="bg-[#282828] text-[#ebdbb2] border border-[#3c3836] px-3 py-2 rounded-xl text-xs flex-grow min-w-[120px] focus:outline-none">
+            <div class="flex gap-1 bg-[#282828] p-1 rounded-xl border border-[#3c3836] overflow-x-auto">
+                <button onclick="setTab('active')" id="tab-active-mobile" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#d79921] text-[#1d2021] shrink-0">Active</button>
+                <button onclick="setTab('upcoming')" id="tab-upcoming-mobile" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#a89984] shrink-0">Upcoming</button>
+                <button onclick="setTab('done')" id="tab-done-mobile" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#a89984] shrink-0">Done</button>
+                <button onclick="setTab('all')" id="tab-all-mobile" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#a89984] shrink-0">All</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <select id="tag-filter-mobile" onchange="syncTagAndRender('mobile')" class="bg-[#282828] text-[#ebdbb2] border border-[#3c3836] px-3 py-2.5 rounded-xl text-xs flex-1 focus:outline-none">
                     <option value="" selected>All Tags</option>
+                </select>
+                <select id="sort-selector-mobile" onchange="syncSortAndRender('mobile')" class="bg-[#282828] text-[#ebdbb2] border border-[#3c3836] px-3 py-2.5 rounded-xl text-xs flex-1 focus:outline-none">
+                    <option value="relevance" selected>AI Relevance</option>
+                    <option value="date-soonest">Date (Soonest)</option>
+                    <option value="date-latest">Date (Latest)</option>
+                    <option value="received-newest">Received (Newest)</option>
+                    <option value="title">Title (A-Z)</option>
                 </select>
             </div>
         </div>
 
-        <!-- Conversational Smart Feedback Bar -->
-        <div id="ai-answer-bar" class="hidden mb-4 bg-[#23272e] border border-[#d79921]/30 px-4 py-2.5 rounded-xl text-xs sans-ui text-[#fabd2f] italic"></div>
-
-        <div id="loading" class="text-center text-[#a89984] italic py-16 text-xs mono">Syncing database records...</div>
+        <div id="ai-answer-bar-mobile" class="hidden bg-[#23272e] border border-[#d79921]/30 px-4 py-2 rounded-xl text-xs sans-ui text-[#fabd2f] italic"></div>
+        <div id="loading-mobile" class="text-center text-[#a89984] italic py-12 text-xs mono">Syncing records...</div>
         
-        <!-- Stream Feed -->
-        <div id="events-list" class="flex flex-col gap-3.5"></div>
+        <!-- Mobile Feed Container -->
+        <div id="events-list-mobile" class="flex flex-col gap-3"></div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- PC / DESKTOP VIEW (Designed for Computers) -->
+    <!-- ========================================== -->
+    <div class="pc-view hidden p-6 md:p-8 max-w-[98%] mx-auto">
+        <!-- PC Header -->
+        <header class="flex justify-between items-center border-b border-[#3c3836] pb-6 mb-6">
+            <div>
+                <h1 class="text-2xl font-medium tracking-tight text-[#fbf1c7] flex items-center gap-3">
+                    <span class="w-2.5 h-2.5 bg-[#d79921] rounded-full animate-pulse"></span>
+                    Universität Koblenz // Posteingang
+                </h1>
+                <p id="stats-counter-pc" class="text-xs text-[#a89984] mt-1 mono font-medium">Loading records...</p>
+            </div>
+            <div class="flex items-center gap-3 sans-ui text-xs">
+                <button onclick="triggerSync()" class="bg-[#3c3836] hover:bg-[#504945] text-[#ebdbb2] px-4 py-2.5 rounded-xl font-semibold tracking-wide transition border border-[#504945] shadow-md">Sync New Mails</button>
+                <button onclick="clearAllEvents()" class="bg-[#cc241d]/20 hover:bg-[#cc241d]/40 text-[#fb4934] border border-[#cc241d]/30 px-3.5 py-2.5 rounded-xl font-semibold tracking-wide transition">Purge Database</button>
+            </div>
+        </header>
+
+        <!-- PC Controls Bar -->
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-3 bg-[#282828]/90 p-4 rounded-2xl border border-[#3c3836] sans-ui text-xs">
+            <div class="flex gap-1.5 bg-[#1d2021] p-1 rounded-xl border border-[#3c3836]">
+                <button onclick="setTab('active')" id="tab-active-pc" class="px-4 py-2 rounded-lg font-semibold transition bg-[#d79921] text-[#1d2021] shadow">Active</button>
+                <button onclick="setTab('all')" id="tab-all-pc" class="px-4 py-2 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]">All</button>
+                <button onclick="setTab('upcoming')" id="tab-upcoming-pc" class="px-4 py-2 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]">Upcoming</button>
+                <button onclick="setTab('past')" id="tab-past-pc" class="px-4 py-2 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]">Passed</button>
+                <button onclick="setTab('done')" id="tab-done-pc" class="px-4 py-2 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]">Done</button>
+            </div>
+
+            <div class="flex-grow max-w-xs">
+                <input type="search" id="search-input-pc" oninput="syncSearchAndRender('pc')" placeholder="Ask naturally (e.g. exams next week)..." class="w-full bg-[#1d2021] text-[#ebdbb2] border border-[#3c3836] px-4 py-2.5 rounded-xl text-xs italic focus:outline-none focus:border-[#d79921]">
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[#a89984] font-semibold uppercase">Tag:</span>
+                    <select id="tag-filter-pc" onchange="syncTagAndRender('pc')" class="px-3 py-2.5 rounded-xl font-medium focus:outline-none border border-[#3c3836]">
+                        <option value="" selected>All Tags</option>
+                    </select>
+                </div>
+
+                <button onclick="toggleSelectMode()" id="select-mode-btn-pc" class="bg-[#3c3836] hover:bg-[#504945] text-[#ebdbb2] px-3.5 py-2.5 rounded-xl font-semibold transition border border-[#504945]">Select: OFF</button>
+                
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[#a89984] font-semibold uppercase">Sort:</span>
+                    <select id="sort-selector-pc" onchange="syncSortAndRender('pc')" class="px-3 py-2.5 rounded-xl font-medium focus:outline-none border border-[#3c3836]">
+                        <option value="relevance" selected>AI Relevance</option>
+                        <option value="date-soonest">Date (Soonest)</option>
+                        <option value="date-latest">Date (Latest)</option>
+                        <option value="received-newest">Received (Newest)</option>
+                        <option value="title">Title (A-Z)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="ai-answer-bar-pc" class="hidden mb-6 bg-[#23272e] border border-[#d79921]/30 px-5 py-3 rounded-xl text-xs sans-ui text-[#fabd2f] italic"></div>
+        <div id="loading-pc" class="text-center text-[#a89984] italic py-16 text-sm mono">Synchronizing database...</div>
+        
+        <!-- PC Grid Container -->
+        <div id="events-grid-pc" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
     </div>
 
     <!-- Floating Batch Action Toolbar -->
@@ -101,32 +178,66 @@
         let currentTab = 'active';
         let selectMode = false;
         let selectedIds = new Set();
+        let searchQuery = "";
+        let selectedTag = "";
+        let sortMode = "relevance";
 
         function setTab(tab) {
             currentTab = tab;
-            ['active', 'upcoming', 'done', 'all'].forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                if (t === tab) {
-                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#d79921] text-[#1d2021] transition shadow";
-                } else {
-                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-[#a89984] transition";
-                }
+            ['active', 'all', 'upcoming', 'past', 'done'].forEach(t => {
+                ['pc', 'mobile'].forEach(platform => {
+                    const btn = document.getElementById(`tab-${t}-${platform}`);
+                    if (btn) {
+                        if (t === tab) {
+                            btn.className = platform === 'mobile' 
+                                ? "px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#d79921] text-[#1d2021] shrink-0 shadow" 
+                                : "px-4 py-2 rounded-lg font-semibold transition bg-[#d79921] text-[#1d2021] shadow";
+                        } else {
+                            btn.className = platform === 'mobile'
+                                ? "px-3 py-1.5 rounded-lg text-xs font-semibold text-[#a89984] shrink-0"
+                                : "px-4 py-2 rounded-lg font-semibold transition text-[#a89984] hover:text-[#ebdbb2]";
+                        }
+                    }
+                });
             });
             renderEvents();
         }
 
         function toggleSelectMode() {
             selectMode = !selectMode;
-            const btn = document.getElementById('select-mode-btn');
-            if (selectMode) {
-                btn.className = "bg-[#d79921] text-[#1d2021] px-3 py-2 rounded-xl text-xs font-semibold border border-[#d79921] transition";
-                btn.innerText = "Done";
-            } else {
-                btn.className = "bg-[#3c3836] text-[#ebdbb2] px-3 py-2 rounded-xl text-xs font-semibold border border-[#504945] transition";
-                btn.innerText = "Select";
+            ['pc', 'mobile'].forEach(platform => {
+                const btn = document.getElementById(`select-mode-btn-${platform}`);
+                if (btn) {
+                    btn.innerText = selectMode ? (platform === 'mobile' ? "Done" : "Select: ON") : (platform === 'mobile' ? "Select" : "Select: OFF");
+                    if (selectMode) btn.classList.add("bg-[#d79921]", "text-[#1d2021]");
+                    else btn.classList.remove("bg-[#d79921]", "text-[#1d2021]");
+                }
+            });
+            if (!selectMode) {
                 selectedIds.clear();
                 document.getElementById('batch-toolbar').classList.add('hidden');
             }
+            renderEvents();
+        }
+
+        function syncSearchAndRender(source) {
+            searchQuery = document.getElementById(`search-input-${source}`).value.trim();
+            const other = source === 'pc' ? 'mobile' : 'pc';
+            document.getElementById(`search-input-${other}`).value = searchQuery;
+            renderEvents();
+        }
+
+        function syncTagAndRender(source) {
+            selectedTag = document.getElementById(`tag-filter-${source}`).value;
+            const other = source === 'pc' ? 'mobile' : 'pc';
+            document.getElementById(`tag-filter-${other}`).value = selectedTag;
+            renderEvents();
+        }
+
+        function syncSortAndRender(source) {
+            sortMode = document.getElementById(`sort-selector-${source}`).value;
+            const other = source === 'pc' ? 'mobile' : 'pc';
+            document.getElementById(`sort-selector-${other}`).value = sortMode;
             renderEvents();
         }
 
@@ -150,13 +261,10 @@
         }
 
         async function triggerSync() {
-            const btn = event.target;
-            btn.innerText = "...";
             try {
                 await fetch('/sync', { method: 'POST' });
                 alert("Background sync triggered.");
             } catch (e) { alert("Sync failed."); }
-            finally { btn.innerText = "Sync"; }
         }
 
         async function toggleDone(id, isDone) {
@@ -171,15 +279,19 @@
             });
         }
 
-        async function togglePin(id, isPinned) {
+        async function togglePin(id, currentPinnedState) {
+            const actionWord = currentPinnedState ? "pin" : "unpin";
+            if (!confirm(`Are you sure you want to ${actionWord} this event?`)) return;
+
+            const newPinnedState = !currentPinnedState;
             const ev = allEvents.find(e => e.id === id);
-            if (ev) ev.is_pinned = isPinned;
+            if (ev) ev.is_pinned = newPinnedState;
             renderEvents();
 
             await fetch(`/events/${id}/pin`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_pinned: isPinned })
+                body: JSON.stringify({ is_pinned: newPinnedState })
             });
         }
 
@@ -198,6 +310,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tags: tags, ...extraUpdates })
             });
+            fetchEvents();
+        }
+
+        async function clearAllEvents() {
+            if (!confirm("Wipe all records?")) return;
+            await fetch('/events', { method: 'DELETE' });
             fetchEvents();
         }
 
@@ -230,16 +348,17 @@
             try {
                 const response = await fetch('/events');
                 const data = await response.json();
-                document.getElementById('loading').style.display = 'none';
+                ['pc', 'mobile'].forEach(p => {
+                    const loader = document.getElementById(`loading-${p}`);
+                    if (loader) loader.style.display = 'none';
+                });
                 allEvents = data.events || [];
-                populateTagDropdown();
+                populateTagDropdowns();
                 renderEvents();
-            } catch (error) { document.getElementById('loading').innerText = "Failed to load database."; }
+            } catch (error) { console.error("Failed to load records."); }
         }
 
-        function populateTagDropdown() {
-            const dropdown = document.getElementById('tag-filter');
-            const currentSelected = dropdown.value;
+        function populateTagDropdowns() {
             let allTagsSet = new Set();
             allEvents.forEach(ev => {
                 try {
@@ -247,13 +366,18 @@
                     tags.forEach(t => allTagsSet.add(t));
                 } catch(e){}
             });
-            dropdown.innerHTML = `<option value="">All Tags</option>`;
-            Array.from(allTagsSet).sort().forEach(tag => {
-                let opt = document.createElement('option');
-                opt.value = tag;
-                opt.innerText = `#${tag}`;
-                if (tag === currentSelected) opt.selected = true;
-                dropdown.appendChild(opt);
+
+            ['pc', 'mobile'].forEach(platform => {
+                const dropdown = document.getElementById(`tag-filter-${platform}`);
+                if (!dropdown) return;
+                dropdown.innerHTML = `<option value="">All Tags</option>`;
+                Array.from(allTagsSet).sort().forEach(tag => {
+                    let opt = document.createElement('option');
+                    opt.value = tag;
+                    opt.innerText = `#${tag}`;
+                    if (tag === selectedTag) opt.selected = true;
+                    dropdown.appendChild(opt);
+                });
             });
         }
 
@@ -266,8 +390,7 @@
             
             let tags = [];
             try { tags = JSON.parse((event.tags || '[]').replace(/'/g, '"')); } catch(e){}
-            const tagsStr = tags.join(" ").toLowerCase();
-            const combinedText = `${title} ${summary} ${organizer} ${category} ${tagsStr}`;
+            const combinedText = `${title} ${summary} ${organizer} ${category} ${tags.join(" ").toLowerCase()}`;
 
             const info = getDaysToGo(event.date || event.deadline);
             if (q.includes("today") || q.includes("heute")) return info.diffDays === 0;
@@ -280,12 +403,16 @@
             return tokens.every(token => combinedText.includes(token));
         }
 
-        function renderEvents() {
-            const listContainer = document.getElementById('events-list');
-            listContainer.innerHTML = "";
-            const rawSearchQuery = document.getElementById('search-input').value.trim();
-            const selectedTag = document.getElementById('tag-filter').value;
+        function computeRelevanceScore(event, queryTokens) {
+            let score = 0;
+            const text = `${event.event_title} ${event.summary} ${event.organizer} ${event.category}`.toLowerCase();
+            queryTokens.forEach(token => {
+                if (text.includes(token)) score += 10;
+            });
+            return score;
+        }
 
+        function renderEvents() {
             let filtered = allEvents.filter(ev => {
                 const info = getDaysToGo(ev.date || ev.deadline);
                 if (selectedTag) {
@@ -307,33 +434,55 @@
                 if (effectiveIsDone) return false;
                 if (currentTab === 'active') return !info.isPast;
                 if (currentTab === 'upcoming') return !info.isPast;
+                if (currentTab === 'past') return info.isPast;
                 return true;
             });
 
-            if (rawSearchQuery.length > 0) {
-                filtered = filtered.filter(ev => smartMatch(ev, rawSearchQuery));
+            if (searchQuery.length > 0) {
+                filtered = filtered.filter(ev => smartMatch(ev, searchQuery));
             }
 
-            const aiBar = document.getElementById('ai-answer-bar');
-            if (rawSearchQuery.length > 0) {
-                aiBar.classList.remove('hidden');
-                aiBar.innerText = `Smart search found ${filtered.length} matching event${filtered.length > 1 ? 's' : ''}`;
-            } else {
-                aiBar.classList.add('hidden');
-            }
+            // AI Bar update
+            ['pc', 'mobile'].forEach(platform => {
+                const aiBar = document.getElementById(`ai-answer-bar-${platform}`);
+                if (aiBar) {
+                    if (searchQuery.length > 0) {
+                        aiBar.classList.remove('hidden');
+                        aiBar.innerText = `Found ${filtered.length} matching event${filtered.length > 1 ? 's' : ''} for "${searchQuery}"`;
+                    } else {
+                        aiBar.classList.add('hidden');
+                    }
+                }
+            });
 
             const uids = new Set(allEvents.map(e => e.email_uid).filter(Boolean));
-            document.getElementById('stats-counter').innerText = `${filtered.length} items // ${uids.size || allEvents.length} parsed`;
+            const statsText = `${filtered.length} tiles in "${currentTab.toUpperCase()}" // ${uids.size || allEvents.length} Mails Parsed`;
+            document.getElementById('stats-counter-pc').innerText = statsText;
+            document.getElementById('stats-counter-mobile').innerText = statsText;
 
+            // Sorting
             filtered.sort((a, b) => {
                 if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+                if (sortMode === 'title') return a.event_title.localeCompare(b.event_title);
+                if (sortMode === 'received-newest') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
                 const dateA = parseDate(a.date || a.deadline) || new Date(8640000000000);
                 const dateB = parseDate(b.date || b.deadline) || new Date(8640000000000);
+                if (sortMode === 'date-soonest') return dateA - dateB;
+                if (sortMode === 'date-latest') return dateB - dateA;
                 return dateA - dateB;
             });
 
+            renderContainer('pc', filtered);
+            renderContainer('mobile', filtered);
+        }
+
+        function renderContainer(platform, filtered) {
+            const container = document.getElementById(platform === 'pc' ? 'events-grid-pc' : 'events-list-mobile');
+            if (!container) return;
+            container.innerHTML = "";
+
             if (filtered.length === 0) {
-                listContainer.innerHTML = `<p class="text-[#a89984] italic py-16 text-center text-xs mono">No records found.</p>`;
+                container.innerHTML = `<p class="text-[#a89984] italic py-16 text-center text-xs mono col-span-full">No matching records found.</p>`;
                 return;
             }
 
@@ -346,47 +495,65 @@
                 let effectiveIsDone = hasDoneTag ? true : event.is_done;
 
                 const card = document.createElement('div');
-                card.className = `mobile-card rounded-2xl p-4 flex flex-col gap-3 text-sm ${effectiveIsDone ? 'opacity-40' : ''} ${event.is_pinned ? 'pinned-card' : ''}`;
+                card.className = `card rounded-2xl p-4 md:p-5 flex flex-col justify-between text-sm ${effectiveIsDone ? 'opacity-40' : ''} ${event.is_pinned ? 'pinned-card' : ''}`;
 
                 let countdown = getDaysToGo(event.date || event.deadline);
-                let dateDisplay = event.date ? `${event.date} ${countdown.text}` : (event.deadline ? `Deadline: ${event.deadline} ${countdown.text}` : 'No date specified');
+                let actionBadge = (event.action_required && !countdown.isPast) ? `<span class="bg-[#cc241d]/20 text-[#fb4934] border border-[#cc241d]/40 px-2 py-0.5 rounded text-[10px] mono font-semibold">Action Required</span>` : "";
                 
-                let checkboxHtml = selectMode ? `<input type="checkbox" onclick="toggleSelect(${event.id}, this)" ${selectedIds.has(event.id) ? 'checked' : ''} class="w-5 h-5 rounded bg-[#1d2021] border-[#504945] text-[#d79921]">` : '';
+                let eventDateDisplay = "";
+                if (event.date) {
+                    eventDateDisplay = `<div class="bg-[#1d2021] border border-[#3c3836] rounded-xl p-2.5 mb-3 flex items-center justify-between"><span class="text-[10px] text-[#a89984] uppercase font-bold">Event Date</span><span class="text-[#ebdbb2] font-semibold mono text-xs">${event.date} ${countdown.text}</span></div>`;
+                } else if (event.deadline) {
+                    eventDateDisplay = `<div class="bg-[#cc241d]/15 border border-[#cc241d]/30 rounded-xl p-2.5 mb-3 flex items-center justify-between"><span class="text-[10px] text-[#fb4934] uppercase font-bold">Deadline</span><span class="text-[#fb4934] font-semibold mono text-xs">${event.deadline} ${countdown.text}</span></div>`;
+                } else {
+                    eventDateDisplay = `<div class="bg-[#1d2021]/50 border border-[#3c3836]/50 rounded-xl p-2.5 mb-3 flex items-center justify-between"><span class="text-[10px] text-[#7c6f64] uppercase font-bold">Date</span><span class="text-[#7c6f64] italic text-[11px]">Not specified</span></div>`;
+                }
+
+                let linkButton = event.email_link ? `<a href="${event.email_link}" target="_blank" class="inline-block text-xs font-semibold text-[#83a598] hover:text-[#bdae93] mt-2 sans-ui underline underline-offset-4">Open Broadcast Link</a>` : "";
 
                 let parsedTags = [];
                 try { parsedTags = JSON.parse((event.tags || '[]').replace(/'/g, '"')); } catch(e) { parsedTags = []; }
                 let tagsHtml = parsedTags.map(t => `<span class="bg-[#1d2021] text-[#d5c4a1] px-2 py-0.5 rounded text-[10px] border border-[#3c3836] mono">#${t}</span>`).join(' ');
 
+                let checkboxHtml = selectMode ? `<input type="checkbox" onclick="toggleSelect(${event.id}, this)" ${selectedIds.has(event.id) ? 'checked' : ''} class="w-5 h-5 rounded bg-[#1d2021] border-[#504945] text-[#d79921]">` : '';
+
                 card.innerHTML = `
-                    <div class="flex justify-between items-start gap-2 sans-ui">
-                        <div class="flex items-center gap-2">
-                            ${checkboxHtml}
-                            <span class="uppercase tracking-wider text-[10px] font-semibold text-[#bdae93] bg-[#d79921]/15 border border-[#d79921]/30 px-2 py-0.5 rounded">${event.category}</span>
-                        </div>
-                        <button onclick="togglePin(${event.id}, ${!event.is_pinned})" class="text-[11px] text-[#a89984] hover:text-[#fabd2f] font-bold px-2.5 py-1 rounded border border-[#3c3836] bg-[#1d2021] transition">${event.is_pinned ? '★ PINNED' : '☆ PIN'}</button>
-                    </div>
-
                     <div>
-                        <h2 class="text-base font-medium text-[#fbf1c7] leading-snug italic mb-1">${event.event_title}</h2>
-                        <p class="text-[11px] text-[#a89984] uppercase tracking-wide truncate sans-ui mb-2">${event.organizer || 'Unknown Sender'}</p>
-                        <p class="text-[11px] font-semibold mono text-[#ebdbb2] bg-[#1d2021] p-2 rounded-xl border border-[#3c3836] mb-2 inline-block">${dateDisplay}</p>
-                        <p class="text-[#d5c4a1] text-xs leading-relaxed not-italic">${event.summary}</p>
+                        <div class="flex justify-between items-center mb-3 sans-ui">
+                            <div class="flex items-center gap-2">
+                                ${checkboxHtml}
+                                <span class="uppercase tracking-wider text-[10px] font-semibold text-[#bdae93] bg-[#d79921]/15 border border-[#d79921]/30 px-2 py-0.5 rounded">${event.category}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${actionBadge}
+                                <button onclick="togglePin(${event.id}, ${event.is_pinned})" class="text-[11px] text-[#a89984] hover:text-[#fabd2f] font-bold px-2.5 py-1 rounded border border-[#3c3836] bg-[#1d2021] transition">${event.is_pinned ? '★ PINNED' : '☆ PIN'}</button>
+                            </div>
+                        </div>
+
+                        <h2 class="text-base font-medium text-[#fbf1c7] mb-1.5 leading-snug italic">${event.event_title}</h2>
+                        <p class="text-[11px] text-[#a89984] uppercase tracking-wide mb-3 truncate font-medium sans-ui">Sender: ${event.organizer || 'Unknown'}</p>
+                        
+                        ${eventDateDisplay}
+
+                        <p class="text-[#d5c4a1] text-sm leading-relaxed mb-3 not-italic">${event.summary}</p>
+                        ${linkButton}
                     </div>
 
-                    ${event.email_link ? `<div><a href="${event.email_link}" target="_blank" class="text-xs font-semibold text-[#83a598] underline underline-offset-4">Open Broadcast Link</a></div>` : ''}
-
-                    <div class="pt-2.5 border-t border-[#3c3836] flex justify-between items-center sans-ui text-xs">
+                    <div class="mt-4 pt-3 border-t border-[#3c3836] flex flex-col gap-2.5 sans-ui">
                         <div class="flex flex-wrap items-center gap-1.5">
                             ${tagsHtml}
                             <button onclick="addTag(${event.id}, '${event.tags || '[]'}')" class="text-[10px] text-[#a89984] bg-[#1d2021] px-2 py-0.5 rounded border border-[#3c3836]">+Tag</button>
                         </div>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-bold text-xs text-[#ebdbb2] py-1">
-                            <input type="checkbox" ${effectiveIsDone ? 'checked' : ''} onchange="toggleDone(${event.id}, this.checked)" class="w-4 h-4 rounded bg-[#1d2021] border-[#504945] text-[#b8bb26]">
-                            Done
-                        </label>
+                        <div class="flex justify-between items-center pt-1">
+                            <span class="mono text-[10px] text-[#a89984]">Received: ${event.email_date ? event.email_date.substring(0,16) : 'Unknown'}</span>
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-sm text-[#ebdbb2] hover:text-white">
+                                <input type="checkbox" ${effectiveIsDone ? 'checked' : ''} onchange="toggleDone(${event.id}, this.checked)" class="w-5 h-5 rounded bg-[#1d2021] border-[#504945] text-[#b8bb26]">
+                                Done
+                            </label>
+                        </div>
                     </div>
                 `;
-                listContainer.appendChild(card);
+                container.appendChild(card);
             });
         }
 
