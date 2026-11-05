@@ -16,8 +16,10 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
+def sync_emails_to_db():
+    logger.info("Starting background email sync...")
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    
 def get_db_connection():
     return psycopg2.connect(os.getenv("NEON_DB_URL"))
 
